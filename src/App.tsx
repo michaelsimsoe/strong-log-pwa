@@ -1,36 +1,70 @@
-import { useState } from 'react';
-import './App.css';
+import { useEffect } from 'react';
+import { Outlet, useNavigate, useLocation } from 'react-router';
 import ErrorBoundary from './components/shared/ErrorBoundary';
+import { initDatabase } from './services/data/db';
+import Navbar from './components/layout/Navbar';
+import BottomNavigation from './components/layout/BottomNavigation';
+import { useUserSettingsStore } from './state/userSettingsStore';
 
 function App() {
-  const [count, setCount] = useState(0);
+  // Initialize theme from settings store
+  const { initializeSettings, applyTheme } = useUserSettingsStore();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const initDb = async () => {
+      try {
+        await initDatabase();
+
+        // Initialize user settings after database is ready
+        await initializeSettings();
+      } catch (error) {
+        console.error('Failed to initialize database:', error);
+      }
+    };
+
+    initDb();
+
+    // Apply theme based on system preference initially
+    applyTheme();
+
+    // Listen for system theme changes
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = () => applyTheme();
+    mediaQuery.addEventListener('change', handleChange);
+
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, [initializeSettings, applyTheme]);
+
+  // Navigate to settings page
+  const handleSettingsClick = () => {
+    if (location.pathname === '/settings') {
+      navigate('/');
+    } else {
+      navigate('/settings');
+    }
+  };
 
   return (
     <ErrorBoundary>
-      <div className="app-container">
-        <header className="app-header">
-          <div className="header-content">
-            <h1>StrongLog</h1>
-            <p>Track your strength training progress</p>
-          </div>
-        </header>
-        <main className="app-main">
-          <div className="main-content">
-            <h2>Welcome to StrongLog</h2>
-            <p>Your personal strength training companion</p>
-            <div className="action-container">
-              <button
-                onClick={() => setCount(count => count + 1)}
-                className="primary-button"
-                aria-label="Increment counter"
-              >
-                You clicked {count} times
-              </button>
-            </div>
-          </div>
-        </main>
-        <footer className="app-footer">
-          <div className="footer-content">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
+        <Navbar
+          title={location.pathname === '/settings' ? 'Settings' : 'StrongLog'}
+          onSettingsClick={handleSettingsClick}
+        />
+
+        <div className="flex-1 pb-16">
+          {' '}
+          {/* Add padding bottom to accommodate the bottom navigation */}
+          <Outlet />
+        </div>
+
+        {/* Bottom Navigation */}
+        <BottomNavigation />
+
+        <footer className="bg-secondary-800 text-white py-4 px-4 dark:bg-secondary-950">
+          <div className="container mx-auto max-w-screen-md text-center">
             <p>StrongLog PWA - Version 1.0</p>
           </div>
         </footer>
