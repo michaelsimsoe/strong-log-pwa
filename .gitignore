@@ -23,3 +23,10 @@ dist-ssr
 *.sln
 *.sw?
 secret.txt
+
+# Ignore Playwright output and all its contents
+playwright-report/
+playwright-report/**
+
+test-results/
+test-results/**
