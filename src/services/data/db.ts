@@ -21,6 +21,7 @@ import type {
   UserBodyweightEntry,
   AppliedProgressionLogEntry,
 } from '../../types/data.types';
+import { getExerciseSeedData } from '../../config/seedData/exercises';
 
 /**
  * StrongLogDatabase class extends Dexie to provide typed access to our database tables
@@ -85,6 +86,9 @@ export async function initDatabase(): Promise<void> {
     if (settingsCount === 0) {
       await createDefaultUserSettings();
     }
+
+    // Check if we need to seed exercise definitions
+    await seedExerciseDefinitions();
   } catch (error) {
     console.error('Failed to initialize StrongLogDB:', error);
     throw error;
@@ -104,6 +108,28 @@ async function createDefaultUserSettings(): Promise<void> {
     console.info('Default user settings created');
   } catch (error) {
     console.error('Failed to create default user settings:', error);
+    throw error;
+  }
+}
+
+/**
+ * Seed exercise definitions if the table is empty
+ */
+async function seedExerciseDefinitions(): Promise<void> {
+  try {
+    // Check if exercise definitions already exist
+    const exerciseCount = await db.exerciseDefinitions.count();
+
+    if (exerciseCount === 0) {
+      // Get seed data
+      const seedExercises = getExerciseSeedData();
+
+      // Add all seed exercises to the database
+      await db.exerciseDefinitions.bulkAdd(seedExercises);
+      console.info(`Seeded ${seedExercises.length} exercise definitions`);
+    }
+  } catch (error) {
+    console.error('Failed to seed exercise definitions:', error);
     throw error;
   }
 }
