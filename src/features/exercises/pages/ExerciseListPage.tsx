@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { PlusCircle, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -67,8 +67,18 @@ export function ExerciseListPage() {
 
   // Navigate to edit exercise page
   const handleEditExercise = (exercise: ExerciseDefinition) => {
-    if (exercise.id) {
+    // Navigate to edit page for custom exercises
+    navigate(`/exercises/edit/${exercise.id}`);
+  };
+
+  const handleViewExercise = (exercise: ExerciseDefinition) => {
+    // For now, custom exercises go to edit page, standard exercises could have a details page in the future
+    if (exercise.isCustom) {
       navigate(`/exercises/edit/${exercise.id}`);
+    } else {
+      // In the future, we could navigate to a details page for standard exercises
+      // For now, just show an alert
+      alert(`Viewing details for ${exercise.name} (Standard Exercise)`);
     }
   };
 
@@ -102,9 +112,12 @@ export function ExerciseListPage() {
     <div className="container max-w-2xl mx-auto py-6 px-4">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Exercise Library</h1>
-        <Button onClick={handleCreateExercise}>
+        <Button
+          className="bg-[#683BF3] text-white rounded-md hover:bg-[#5930d0] transition-colors"
+          onClick={handleCreateExercise}
+        >
           <PlusCircle className="mr-2 h-4 w-4" />
-          New Exercise
+          New Exercise!
         </Button>
       </div>
 
@@ -129,12 +142,14 @@ export function ExerciseListPage() {
               <h2 className="text-lg font-medium mb-2">My Custom Exercises</h2>
               <div className="space-y-2">
                 {customExercises.map(exercise => (
-                  <ExerciseListItem
-                    key={exercise.id}
-                    exercise={exercise}
-                    onEdit={handleEditExercise}
-                    onDelete={handleDeleteClick}
-                  />
+                  <div key={exercise.id} role="listitem" aria-label={`Exercise ${exercise.name}`}>
+                    <ExerciseListItem
+                      exercise={exercise}
+                      onEdit={handleEditExercise}
+                      onDelete={handleDeleteClick}
+                      onView={() => handleViewExercise(exercise)}
+                    />
+                  </div>
                 ))}
               </div>
             </div>
@@ -146,7 +161,12 @@ export function ExerciseListPage() {
               <h2 className="text-lg font-medium mb-2">Standard Exercises</h2>
               <div className="space-y-2">
                 {prePopulatedExercises.map(exercise => (
-                  <ExerciseListItem key={exercise.id} exercise={exercise} />
+                  <div key={exercise.id} role="listitem" aria-label={`Exercise ${exercise.name}`}>
+                    <ExerciseListItem
+                      exercise={exercise}
+                      onView={() => handleViewExercise(exercise)}
+                    />
+                  </div>
                 ))}
               </div>
             </div>

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useNavigate } from 'react-router';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useUserSettingsStore } from '@/state/userSettingsStore';
@@ -8,6 +9,7 @@ import PageWrapper from '@/components/layout/PageWrapper';
  * Settings page component that allows users to configure their preferences.
  */
 export function SettingsPage() {
+  const navigate = useNavigate();
   const {
     preferredWeightUnit,
     theme,
@@ -54,6 +56,29 @@ export function SettingsPage() {
         )}
 
         <div className="space-y-6">
+          {/* Exercise Management */}
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-lg font-medium text-gray-900 dark:text-gray-50">
+                Exercise Management
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Create, edit, and manage your custom exercises.
+              </p>
+            </div>
+            <div className="pt-2">
+              <button
+                onClick={() => navigate('/exercises')}
+                className="px-4 py-2 bg-[#683BF3] text-white rounded-md hover:bg-[#5930d0] transition-colors"
+                aria-label="Manage Exercises"
+              >
+                Manage Exercises
+              </button>
+            </div>
+          </div>
+
+          <div className="border-t border-gray-200 dark:border-gray-700 my-6"></div>
+
           {/* Weight Units Setting */}
           <div className="space-y-4">
             <div>
