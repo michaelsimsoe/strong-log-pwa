@@ -11,6 +11,7 @@ import {
   type ExerciseDefinition,
   type WorkoutLog,
   type StandardSet,
+  type AmrapRepsSet,
   type LoggedSet,
 } from '../../../types/data.types';
 import { saveWorkoutWithSets } from '../../../services/data/workoutService';
@@ -26,11 +27,12 @@ export interface ActiveExercise {
 export interface ActiveSet {
   id: string; // Temporary ID for UI management
   orderInExercise: number;
-  setType: 'standard';
+  setType: 'standard' | 'amrapReps';
   loggedWeightKg: number;
   loggedReps: number;
   completed: boolean;
   notes?: string;
+  targetWeightKg?: number; // Optional for AMRAP sets
 }
 
 export interface ActiveWorkout {
@@ -144,11 +146,12 @@ export function useActiveWorkout(): UseActiveWorkoutReturn {
           const newSet: ActiveSet = {
             id: uuidv4(),
             orderInExercise: exercise.sets.length,
-            setType: 'standard',
+            setType: initialValues?.setType ?? 'standard',
             loggedWeightKg: initialValues?.loggedWeightKg ?? previousSet?.loggedWeightKg ?? 0,
             loggedReps: initialValues?.loggedReps ?? previousSet?.loggedReps ?? 0,
             completed: initialValues?.completed ?? false,
             notes: initialValues?.notes,
+            targetWeightKg: initialValues?.targetWeightKg ?? previousSet?.targetWeightKg,
           };
 
           return {
@@ -267,17 +270,32 @@ export function useActiveWorkout(): UseActiveWorkoutReturn {
       exercise.sets.forEach(set => {
         // Only include completed sets
         if (set.completed) {
-          const loggedSet: Omit<StandardSet, 'id' | 'workoutLogId'> = {
-            exerciseDefinitionId: exercise.exerciseDefinitionId,
-            orderInWorkout: exercise.orderInWorkout,
-            orderInExercise: set.orderInExercise,
-            setType: 'standard',
-            loggedWeightKg: set.loggedWeightKg,
-            loggedReps: set.loggedReps,
-            notes: set.notes,
-          };
-
-          loggedSets.push(loggedSet);
+          // Create the appropriate set type based on the active set's type
+          if (set.setType === 'amrapReps') {
+            const loggedSet: Omit<AmrapRepsSet, 'id' | 'workoutLogId'> = {
+              exerciseDefinitionId: exercise.exerciseDefinitionId,
+              orderInWorkout: exercise.orderInWorkout,
+              orderInExercise: set.orderInExercise,
+              setType: 'amrapReps',
+              targetWeightKg: set.targetWeightKg,
+              loggedWeightKg: set.loggedWeightKg,
+              loggedReps: set.loggedReps,
+              notes: set.notes,
+            };
+            loggedSets.push(loggedSet);
+          } else {
+            // Standard set
+            const loggedSet: Omit<StandardSet, 'id' | 'workoutLogId'> = {
+              exerciseDefinitionId: exercise.exerciseDefinitionId,
+              orderInWorkout: exercise.orderInWorkout,
+              orderInExercise: set.orderInExercise,
+              setType: 'standard',
+              loggedWeightKg: set.loggedWeightKg,
+              loggedReps: set.loggedReps,
+              notes: set.notes,
+            };
+            loggedSets.push(loggedSet);
+          }
         }
       });
     });

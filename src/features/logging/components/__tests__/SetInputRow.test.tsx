@@ -166,9 +166,9 @@ describe('SetInputRow', () => {
       />
     );
 
-    // Check for completed styling
-    const row = screen.getByText('Set 1').closest('div')?.parentElement;
-    expect(row).toHaveClass('bg-green-50');
+    // Check for completed styling - the main container div should have the class
+    const container = screen.getByText('Set 1').closest('div')?.parentElement?.parentElement;
+    expect(container).toHaveClass('bg-green-50');
   });
 
   it('shows note indicator when set has notes', () => {
@@ -187,5 +187,77 @@ describe('SetInputRow', () => {
     // Since we don't have a specific note indicator in the current implementation,
     // we'll just verify the more options button is present
     expect(screen.getByLabelText('More options')).toBeInTheDocument();
+  });
+
+  it('renders set type selector with correct options', () => {
+    render(
+      <SetInputRow
+        setNumber={0}
+        set={mockSet}
+        onUpdate={onUpdate}
+        onDelete={onDelete}
+        onAddNote={onAddNote}
+      />
+    );
+
+    // Open the select dropdown
+    fireEvent.click(screen.getByRole('combobox', { name: /select set type/i }));
+
+    // Check that both options are available
+    expect(screen.getByRole('option', { name: 'Standard' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'AMRAP for Reps' })).toBeInTheDocument();
+  });
+
+  it('calls onUpdate when set type changes', () => {
+    render(
+      <SetInputRow
+        setNumber={0}
+        set={mockSet}
+        onUpdate={onUpdate}
+        onDelete={onDelete}
+        onAddNote={onAddNote}
+      />
+    );
+
+    // Open the select dropdown
+    fireEvent.click(screen.getByRole('combobox', { name: /select set type/i }));
+
+    // Select AMRAP option
+    fireEvent.click(screen.getByRole('option', { name: 'AMRAP for Reps' }));
+
+    expect(onUpdate).toHaveBeenCalledWith({ setType: 'amrapReps' });
+  });
+
+  it('displays AMRAP label when set type is amrapReps', () => {
+    const amrapSet = { ...mockSet, setType: 'amrapReps' as const };
+
+    render(
+      <SetInputRow
+        setNumber={0}
+        set={amrapSet}
+        onUpdate={onUpdate}
+        onDelete={onDelete}
+        onAddNote={onAddNote}
+      />
+    );
+
+    expect(screen.getByText('AMRAP: As Many Reps As Possible')).toBeInTheDocument();
+  });
+
+  it('changes reps input label for AMRAP sets', () => {
+    const amrapSet = { ...mockSet, setType: 'amrapReps' as const };
+
+    render(
+      <SetInputRow
+        setNumber={0}
+        set={amrapSet}
+        onUpdate={onUpdate}
+        onDelete={onDelete}
+        onAddNote={onAddNote}
+      />
+    );
+
+    // Check that the reps input has the AMRAP-specific label
+    expect(screen.getByLabelText('Achieved reps for set 1')).toBeInTheDocument();
   });
 });
