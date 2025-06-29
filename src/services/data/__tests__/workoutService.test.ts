@@ -16,7 +16,7 @@ import {
   deleteLoggedSet,
   saveWorkoutWithSets,
 } from '../workoutService';
-import { type WorkoutLog, type LoggedSet } from '../../../types/data.types';
+import { type WorkoutLog, type LoggedSet, type AmrapTimeSet } from '../../../types/data.types';
 
 // Mock the database
 vi.mock('../db', () => {
@@ -62,6 +62,21 @@ describe('workoutService', () => {
     setType: 'standard',
     loggedWeightKg: 100,
     loggedReps: 10,
+    notes: '',
+  };
+
+  const mockAmrapTimeSet: AmrapTimeSet = {
+    id: 'set-2',
+    workoutLogId: 'workout-1',
+    exerciseDefinitionId: 'exercise-1',
+    orderInWorkout: 2,
+    orderInExercise: 2,
+    setType: 'amrapTime',
+    targetWeightKg: 80,
+    targetDurationSecs: 60,
+    loggedWeightKg: 80,
+    loggedReps: 15,
+    loggedDurationSecs: 60,
     notes: '',
   };
 
@@ -352,6 +367,43 @@ describe('workoutService', () => {
       });
     });
 
+    it('should save a workout with AMRAP Time sets in a transaction', async () => {
+      // Mock transaction implementation that executes the callback
+      (db.transaction as Mock).mockImplementation(
+        (_mode: string, _tables: string[], callback: () => Promise<void>) => {
+          return callback();
+        }
+      );
+
+      // Setup mocks to return expected values
+      const workoutWithId = { ...mockWorkoutLog };
+      const amrapTimeSetWithId = { ...mockAmrapTimeSet, workoutLogId: mockWorkoutLog.id };
+
+      (db.workoutLogs.add as Mock).mockResolvedValue(workoutWithId.id);
+      (db.loggedSets.bulkAdd as Mock).mockResolvedValue([amrapTimeSetWithId.id]);
+
+      // Create a set without id and workoutLogId as the function expects
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { id, workoutLogId, ...amrapTimeSetWithoutId } = { ...mockAmrapTimeSet };
+
+      const result = await saveWorkoutWithSets(workoutWithId, [amrapTimeSetWithoutId]);
+
+      expect(db.transaction).toHaveBeenCalled();
+      expect(db.workoutLogs.add).toHaveBeenCalled();
+      expect(db.loggedSets.bulkAdd).toHaveBeenCalled();
+      expect(result).toEqual({
+        workout: expect.objectContaining({ id: workoutWithId.id }),
+        sets: expect.arrayContaining([
+          expect.objectContaining({
+            workoutLogId: workoutWithId.id,
+            setType: 'amrapTime',
+            targetDurationSecs: 60,
+            loggedReps: 15,
+          }),
+        ]),
+      });
+    });
+
     it('should throw an error for invalid workout data', async () => {
       const invalidWorkoutLog = {
         ...mockWorkoutLog,
@@ -366,6 +418,23 @@ describe('workoutService', () => {
         loggedWeightKg: 'invalid-weight' as unknown as number,
       };
       await expect(saveWorkoutWithSets(mockWorkoutLog, [invalidLoggedSet])).rejects.toThrow();
+    });
+
+    it('should throw an error for invalid AMRAP Time set data', async () => {
+      // Missing required targetDurationSecs field
+      const invalidAmrapTimeSet = {
+        ...mockAmrapTimeSet,
+        targetDurationSecs: undefined,
+      };
+      await expect(saveWorkoutWithSets(mockWorkoutLog, [invalidAmrapTimeSet])).rejects.toThrow();
+    });
+
+    it('should throw an error for negative targetDurationSecs in AMRAP Time set', async () => {
+      const invalidAmrapTimeSet = {
+        ...mockAmrapTimeSet,
+        targetDurationSecs: -30, // Negative duration is invalid
+      };
+      await expect(saveWorkoutWithSets(mockWorkoutLog, [invalidAmrapTimeSet])).rejects.toThrow();
     });
   });
 });

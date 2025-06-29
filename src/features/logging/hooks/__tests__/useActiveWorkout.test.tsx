@@ -117,6 +117,27 @@ describe('useActiveWorkout', () => {
     expect(result.current.activeWorkout?.exercises[0].sets[0].loggedReps).toBe(10);
   });
 
+  it('should add an AMRAP Time set with initial values', () => {
+    const { result } = renderHook(() => useActiveWorkout());
+
+    act(() => {
+      result.current.startWorkout();
+      result.current.addExercise(mockExercise);
+      result.current.addSet('exercise-1', {
+        setType: 'amrapTime',
+        loggedWeightKg: 100,
+        loggedReps: 10,
+        targetDurationSecs: 60,
+      });
+    });
+
+    expect(result.current.activeWorkout?.exercises[0].sets.length).toBe(1);
+    expect(result.current.activeWorkout?.exercises[0].sets[0].setType).toBe('amrapTime');
+    expect(result.current.activeWorkout?.exercises[0].sets[0].loggedWeightKg).toBe(100);
+    expect(result.current.activeWorkout?.exercises[0].sets[0].loggedReps).toBe(10);
+    expect(result.current.activeWorkout?.exercises[0].sets[0].targetDurationSecs).toBe(60);
+  });
+
   it('should update a set', () => {
     const { result } = renderHook(() => useActiveWorkout());
 
@@ -138,6 +159,33 @@ describe('useActiveWorkout', () => {
 
     expect(result.current.activeWorkout?.exercises[0].sets[0].loggedWeightKg).toBe(100);
     expect(result.current.activeWorkout?.exercises[0].sets[0].loggedReps).toBe(10);
+    expect(result.current.activeWorkout?.exercises[0].sets[0].completed).toBe(true);
+  });
+
+  it('should update an AMRAP Time set', () => {
+    const { result } = renderHook(() => useActiveWorkout());
+
+    act(() => {
+      result.current.startWorkout();
+      result.current.addExercise(mockExercise);
+      result.current.addSet('exercise-1', { setType: 'amrapTime', targetDurationSecs: 60 });
+    });
+
+    const setId = result.current.activeWorkout?.exercises[0].sets[0].id;
+
+    act(() => {
+      result.current.updateSet('exercise-1', setId!, {
+        loggedWeightKg: 100,
+        loggedReps: 15,
+        targetDurationSecs: 90,
+        completed: true,
+      });
+    });
+
+    expect(result.current.activeWorkout?.exercises[0].sets[0].setType).toBe('amrapTime');
+    expect(result.current.activeWorkout?.exercises[0].sets[0].loggedWeightKg).toBe(100);
+    expect(result.current.activeWorkout?.exercises[0].sets[0].loggedReps).toBe(15);
+    expect(result.current.activeWorkout?.exercises[0].sets[0].targetDurationSecs).toBe(90);
     expect(result.current.activeWorkout?.exercises[0].sets[0].completed).toBe(true);
   });
 
@@ -209,6 +257,48 @@ describe('useActiveWorkout', () => {
     });
 
     expect(saveWorkoutWithSets).toHaveBeenCalled();
+    expect(result.current.isWorkoutActive).toBe(false);
+    expect(result.current.activeWorkout).toBeNull();
+  });
+
+  it('should complete a workout with AMRAP Time sets', async () => {
+    (saveWorkoutWithSets as ReturnType<typeof vi.fn>).mockResolvedValue({
+      workout: { id: 'workout-1' },
+      sets: [{ id: 'set-1' }],
+    });
+
+    const { result } = renderHook(() => useActiveWorkout());
+
+    act(() => {
+      result.current.startWorkout();
+      result.current.addExercise(mockExercise);
+      result.current.addSet('exercise-1', {
+        setType: 'amrapTime',
+        loggedWeightKg: 100,
+        loggedReps: 15,
+        targetDurationSecs: 60,
+        completed: true,
+      });
+    });
+
+    await act(async () => {
+      await result.current.completeWorkout();
+    });
+
+    // Check that saveWorkoutWithSets was called with the correct arguments
+    expect(saveWorkoutWithSets).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.arrayContaining([
+        expect.objectContaining({
+          setType: 'amrapTime',
+          targetDurationSecs: 60,
+          loggedWeightKg: 100,
+          loggedReps: 15,
+          loggedDurationSecs: 60, // Should use targetDurationSecs as loggedDurationSecs
+        }),
+      ])
+    );
+
     expect(result.current.isWorkoutActive).toBe(false);
     expect(result.current.activeWorkout).toBeNull();
   });

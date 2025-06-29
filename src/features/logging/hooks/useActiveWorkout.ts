@@ -12,6 +12,7 @@ import {
   type WorkoutLog,
   type StandardSet,
   type AmrapRepsSet,
+  type AmrapTimeSet,
   type LoggedSet,
 } from '../../../types/data.types';
 import { saveWorkoutWithSets } from '../../../services/data/workoutService';
@@ -27,12 +28,13 @@ export interface ActiveExercise {
 export interface ActiveSet {
   id: string; // Temporary ID for UI management
   orderInExercise: number;
-  setType: 'standard' | 'amrapReps';
+  setType: 'standard' | 'amrapReps' | 'amrapTime';
   loggedWeightKg: number;
   loggedReps: number;
   completed: boolean;
   notes?: string;
   targetWeightKg?: number; // Optional for AMRAP sets
+  targetDurationSecs?: number; // For AMRAP Time sets
 }
 
 export interface ActiveWorkout {
@@ -152,6 +154,8 @@ export function useActiveWorkout(): UseActiveWorkoutReturn {
             completed: initialValues?.completed ?? false,
             notes: initialValues?.notes,
             targetWeightKg: initialValues?.targetWeightKg ?? previousSet?.targetWeightKg,
+            targetDurationSecs:
+              initialValues?.targetDurationSecs ?? previousSet?.targetDurationSecs,
           };
 
           return {
@@ -280,6 +284,21 @@ export function useActiveWorkout(): UseActiveWorkoutReturn {
               targetWeightKg: set.targetWeightKg,
               loggedWeightKg: set.loggedWeightKg,
               loggedReps: set.loggedReps,
+              notes: set.notes,
+            };
+            loggedSets.push(loggedSet);
+          } else if (set.setType === 'amrapTime') {
+            // AMRAP Time set
+            const loggedSet: Omit<AmrapTimeSet, 'id' | 'workoutLogId'> = {
+              exerciseDefinitionId: exercise.exerciseDefinitionId,
+              orderInWorkout: exercise.orderInWorkout,
+              orderInExercise: set.orderInExercise,
+              setType: 'amrapTime',
+              targetWeightKg: set.targetWeightKg,
+              targetDurationSecs: set.targetDurationSecs || 60, // Default to 60 seconds if not set
+              loggedWeightKg: set.loggedWeightKg,
+              loggedReps: set.loggedReps,
+              loggedDurationSecs: set.targetDurationSecs, // Use target duration as logged duration for now
               notes: set.notes,
             };
             loggedSets.push(loggedSet);

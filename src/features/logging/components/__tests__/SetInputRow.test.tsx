@@ -14,6 +14,19 @@ vi.mock('../../../../state/userSettingsStore', () => ({
   }),
 }));
 
+// Mock the IntegratedWorkoutTimer component
+vi.mock('../IntegratedWorkoutTimer', () => ({
+  IntegratedWorkoutTimer: vi
+    .fn()
+    .mockImplementation(({ durationSecs, onTimerComplete, onTimerCancel }) => (
+      <div data-testid="integrated-timer">
+        <div>Duration: {durationSecs}</div>
+        <button onClick={onTimerComplete}>Complete</button>
+        <button onClick={onTimerCancel}>Cancel</button>
+      </div>
+    )),
+}));
+
 describe('SetInputRow', () => {
   // Mock functions
   const onUpdate = vi.fn();
@@ -203,9 +216,10 @@ describe('SetInputRow', () => {
     // Open the select dropdown
     fireEvent.click(screen.getByRole('combobox', { name: /select set type/i }));
 
-    // Check that both options are available
+    // Check that all options are available
     expect(screen.getByRole('option', { name: 'Standard' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'AMRAP for Reps' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'AMRAP for Time' })).toBeInTheDocument();
   });
 
   it('calls onUpdate when set type changes', () => {
@@ -259,5 +273,145 @@ describe('SetInputRow', () => {
 
     // Check that the reps input has the AMRAP-specific label
     expect(screen.getByLabelText('Achieved reps for set 1')).toBeInTheDocument();
+  });
+
+  it('displays AMRAP Time label when set type is amrapTime', () => {
+    const amrapTimeSet = {
+      ...mockSet,
+      setType: 'amrapTime' as const,
+      targetDurationSecs: 60,
+    };
+
+    render(
+      <SetInputRow
+        setNumber={0}
+        set={amrapTimeSet}
+        onUpdate={onUpdate}
+        onDelete={onDelete}
+        onAddNote={onAddNote}
+      />
+    );
+
+    expect(screen.getByText('AMRAP: Max Reps in 60 seconds')).toBeInTheDocument();
+  });
+
+  it('shows duration input field for AMRAP Time sets', () => {
+    const amrapTimeSet = {
+      ...mockSet,
+      setType: 'amrapTime' as const,
+      targetDurationSecs: 60,
+    };
+
+    render(
+      <SetInputRow
+        setNumber={0}
+        set={amrapTimeSet}
+        onUpdate={onUpdate}
+        onDelete={onDelete}
+        onAddNote={onAddNote}
+      />
+    );
+
+    expect(screen.getByLabelText('Target duration for set 1')).toBeInTheDocument();
+    expect(screen.getByLabelText('Target duration for set 1')).toHaveValue(60);
+  });
+
+  it('updates duration when input changes for AMRAP Time sets', () => {
+    const amrapTimeSet = {
+      ...mockSet,
+      setType: 'amrapTime' as const,
+      targetDurationSecs: 60,
+    };
+
+    render(
+      <SetInputRow
+        setNumber={0}
+        set={amrapTimeSet}
+        onUpdate={onUpdate}
+        onDelete={onDelete}
+        onAddNote={onAddNote}
+      />
+    );
+
+    const durationInput = screen.getByLabelText('Target duration for set 1');
+    fireEvent.change(durationInput, { target: { value: '90' } });
+
+    expect(onUpdate).toHaveBeenCalledWith({ targetDurationSecs: 90 });
+  });
+
+  it('shows Start Timer button for AMRAP Time sets', () => {
+    const amrapTimeSet = {
+      ...mockSet,
+      setType: 'amrapTime' as const,
+      targetDurationSecs: 60,
+    };
+
+    render(
+      <SetInputRow
+        setNumber={0}
+        set={amrapTimeSet}
+        onUpdate={onUpdate}
+        onDelete={onDelete}
+        onAddNote={onAddNote}
+      />
+    );
+
+    expect(screen.getByText('Start Timer')).toBeInTheDocument();
+  });
+
+  it('shows timer component when Start Timer is clicked', () => {
+    const amrapTimeSet = {
+      ...mockSet,
+      setType: 'amrapTime' as const,
+      targetDurationSecs: 60,
+    };
+
+    render(
+      <SetInputRow
+        setNumber={0}
+        set={amrapTimeSet}
+        onUpdate={onUpdate}
+        onDelete={onDelete}
+        onAddNote={onAddNote}
+      />
+    );
+
+    // Click the Start Timer button
+    fireEvent.click(screen.getByText('Start Timer'));
+
+    // Check that the timer component is rendered
+    expect(screen.getByTestId('integrated-timer')).toBeInTheDocument();
+    expect(screen.queryByText('Start Timer')).not.toBeInTheDocument();
+  });
+
+  it('hides timer when Cancel is clicked', () => {
+    const amrapTimeSet = {
+      ...mockSet,
+      setType: 'amrapTime' as const,
+      targetDurationSecs: 60,
+    };
+
+    render(
+      <SetInputRow
+        setNumber={0}
+        set={amrapTimeSet}
+        onUpdate={onUpdate}
+        onDelete={onDelete}
+        onAddNote={onAddNote}
+      />
+    );
+
+    // Click the Start Timer button
+    fireEvent.click(screen.getByText('Start Timer'));
+
+    // Check that the timer component is rendered
+    expect(screen.getByTestId('integrated-timer')).toBeInTheDocument();
+
+    // Click the Cancel button
+    fireEvent.click(screen.getByText('Cancel'));
+
+    // Check that the timer component is hidden and Start Timer is shown again
+    expect(screen.queryByTestId('integrated-timer')).not.toBeInTheDocument();
+    expect(screen.getByText('Start Timer')).toBeInTheDocument();
   });
 });

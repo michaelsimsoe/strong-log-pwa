@@ -7,7 +7,7 @@
 import { useState, useEffect } from 'react';
 import { Input } from '../../../components/ui/input';
 import { Button } from '../../../components/ui/button';
-import { Trash2, Check, MoreVertical, AlertCircle, Timer } from 'lucide-react';
+import { Trash2, Check, MoreVertical, AlertCircle, Timer, Clock } from 'lucide-react';
 import { useUserSettingsStore } from '../../../state/userSettingsStore';
 import { type ActiveSet } from '../hooks/useActiveWorkout';
 import {
@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from '../../../components/ui/select';
 import { Label } from '../../../components/ui/label';
+import { IntegratedWorkoutTimer } from './IntegratedWorkoutTimer';
 
 interface SetInputRowProps {
   setNumber: number;
@@ -33,17 +34,23 @@ export function SetInputRow({ setNumber, set, onUpdate, onDelete, onAddNote }: S
   // Local state for input values
   const [weightInput, setWeightInput] = useState(set.loggedWeightKg.toString());
   const [repsInput, setRepsInput] = useState(set.loggedReps.toString());
-  const [setType, setSetType] = useState<'standard' | 'amrapReps'>(set.setType);
+  const [durationInput, setDurationInput] = useState(set.targetDurationSecs?.toString() || '60');
+  const [setType, setSetType] = useState<'standard' | 'amrapReps' | 'amrapTime'>(set.setType);
+  const [showTimer, setShowTimer] = useState(false);
 
   // Validation state
   const [weightError, setWeightError] = useState<string | null>(null);
   const [repsError, setRepsError] = useState<string | null>(null);
+  const [durationError, setDurationError] = useState<string | null>(null);
 
   // Update local state when set prop changes
   useEffect(() => {
     setWeightInput(set.loggedWeightKg.toString());
     setRepsInput(set.loggedReps.toString());
-  }, [set.loggedWeightKg, set.loggedReps]);
+    if (set.targetDurationSecs) {
+      setDurationInput(set.targetDurationSecs.toString());
+    }
+  }, [set.loggedWeightKg, set.loggedReps, set.targetDurationSecs]);
 
   // Handle weight input change
   const handleWeightChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -88,11 +95,58 @@ export function SetInputRow({ setNumber, set, onUpdate, onDelete, onAddNote }: S
     onUpdate({ completed: !set.completed });
   };
 
+  // Handle duration input change
+  const handleDurationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setDurationInput(value);
+
+    // Validate input
+    const numValue = parseInt(value, 10);
+    if (isNaN(numValue)) {
+      setDurationError('Please enter a valid number');
+      return;
+    } else if (numValue <= 0) {
+      setDurationError('Duration must be positive');
+      return;
+    } else {
+      setDurationError(null);
+      onUpdate({ targetDurationSecs: numValue });
+    }
+  };
+
   // Handle set type change
   const handleSetTypeChange = (value: string) => {
-    const newSetType = value as 'standard' | 'amrapReps';
+    const newSetType = value as 'standard' | 'amrapReps' | 'amrapTime';
     setSetType(newSetType);
-    onUpdate({ setType: newSetType });
+
+    // If changing to amrapTime, initialize targetDurationSecs if not already set
+    if (newSetType === 'amrapTime' && !set.targetDurationSecs) {
+      onUpdate({
+        setType: newSetType,
+        targetDurationSecs: 60, // Default to 60 seconds
+      });
+    } else {
+      onUpdate({ setType: newSetType });
+    }
+  };
+
+  // Start timer for AMRAP Time set
+  const handleStartTimer = () => {
+    setShowTimer(true);
+  };
+
+  // Handle timer completion
+  const handleTimerComplete = () => {
+    // Focus on the reps input when timer completes
+    const repsInputElement = document.getElementById(`reps-set-${setNumber}`);
+    if (repsInputElement) {
+      repsInputElement.focus();
+    }
+  };
+
+  // Handle timer cancellation
+  const handleTimerCancel = () => {
+    setShowTimer(false);
   };
 
   return (
@@ -111,6 +165,7 @@ export function SetInputRow({ setNumber, set, onUpdate, onDelete, onAddNote }: S
           <SelectContent>
             <SelectItem value="standard">Standard</SelectItem>
             <SelectItem value="amrapReps">AMRAP for Reps</SelectItem>
+            <SelectItem value="amrapTime">AMRAP for Time</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -227,6 +282,60 @@ export function SetInputRow({ setNumber, set, onUpdate, onDelete, onAddNote }: S
         </div>
       </div>
 
+      {/* Duration input for AMRAP Time sets */}
+      {set.setType === 'amrapTime' && (
+        <div className="flex items-center gap-2 mt-2">
+          <div className="flex-1">
+            <div className="space-y-1">
+              <Label htmlFor={`duration-set-${setNumber}`} className="text-xs">
+                Target Duration
+              </Label>
+              <div className="relative">
+                <Input
+                  id={`duration-set-${setNumber}`}
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={durationInput}
+                  onChange={handleDurationChange}
+                  className={`pr-8 ${durationError ? 'border-red-500' : ''}`}
+                  aria-label={`Target duration for set ${setNumber + 1}`}
+                  aria-invalid={durationError ? 'true' : 'false'}
+                  aria-describedby={durationError ? `duration-error-${setNumber}` : undefined}
+                />
+                <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none text-gray-500 text-sm">
+                  secs
+                </div>
+              </div>
+              {durationError && (
+                <div
+                  id={`duration-error-${setNumber}`}
+                  className="text-xs text-red-500 flex items-center gap-1"
+                  role="alert"
+                >
+                  <AlertCircle size={12} />
+                  {durationError}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex-none pt-6">
+            {!showTimer ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={handleStartTimer}
+                className="flex items-center gap-1"
+              >
+                <Clock size={14} />
+                Start Timer
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      )}
+
       {/* Label for AMRAP sets */}
       {set.setType === 'amrapReps' && (
         <div
@@ -235,6 +344,28 @@ export function SetInputRow({ setNumber, set, onUpdate, onDelete, onAddNote }: S
         >
           <Timer size={14} aria-hidden="true" />
           <span>AMRAP: As Many Reps As Possible</span>
+        </div>
+      )}
+
+      {/* Timer component for AMRAP Time sets */}
+      {set.setType === 'amrapTime' && showTimer && (
+        <div className="mt-3 mb-2">
+          <IntegratedWorkoutTimer
+            durationSecs={parseInt(durationInput, 10)}
+            onTimerComplete={handleTimerComplete}
+            onTimerCancel={handleTimerCancel}
+          />
+        </div>
+      )}
+
+      {/* Label for AMRAP Time sets */}
+      {set.setType === 'amrapTime' && (
+        <div
+          className="text-xs text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1"
+          aria-live="polite"
+        >
+          <Clock size={14} aria-hidden="true" />
+          <span>AMRAP: Max Reps in {durationInput} seconds</span>
         </div>
       )}
     </div>
