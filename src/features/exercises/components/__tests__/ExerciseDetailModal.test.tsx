@@ -2,6 +2,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { ExerciseDetailModal } from '../ExerciseDetailModal';
 import type { ExerciseDefinition } from '@/types/data.types';
 import type { ReactNode } from 'react';
+import { vi, describe, it, expect } from 'vitest';
 
 type DialogProps = {
   children: ReactNode;
@@ -25,7 +26,7 @@ type BadgeProps = {
 };
 
 // Mock the Dialog component since it uses Radix UI primitives
-jest.mock('@/components/ui/dialog', () => ({
+vi.mock('@/components/ui/dialog', () => ({
   Dialog: ({ children, open }: DialogProps) =>
     open ? <div data-testid="dialog">{children}</div> : null,
   DialogContent: ({ children }: DialogChildProps) => (
@@ -41,7 +42,7 @@ jest.mock('@/components/ui/dialog', () => ({
 }));
 
 // Mock the Button component
-jest.mock('@/components/ui/button', () => ({
+vi.mock('@/components/ui/button', () => ({
   Button: ({ children, onClick, ...props }: ButtonProps) => (
     <button onClick={onClick} {...props}>
       {children}
@@ -50,7 +51,7 @@ jest.mock('@/components/ui/button', () => ({
 }));
 
 // Mock the Badge component
-jest.mock('@/components/ui/badge', () => ({
+vi.mock('@/components/ui/badge', () => ({
   Badge: ({ children, ...props }: BadgeProps) => <span {...props}>{children}</span>,
 }));
 
@@ -109,7 +110,7 @@ describe('ExerciseDetailModal', () => {
   });
 
   it('calls onClose when close button is clicked', () => {
-    const onCloseMock = jest.fn();
+    const onCloseMock = vi.fn();
 
     render(
       <ExerciseDetailModal
@@ -125,7 +126,7 @@ describe('ExerciseDetailModal', () => {
   });
 
   it('calls onEdit when edit button is clicked', () => {
-    const onEditMock = jest.fn();
+    const onEditMock = vi.fn();
 
     render(
       <ExerciseDetailModal
