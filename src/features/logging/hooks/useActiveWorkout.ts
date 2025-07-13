@@ -13,6 +13,7 @@ import {
   type StandardSet,
   type AmrapRepsSet,
   type AmrapTimeSet,
+  type RepsForTimeSet,
   type LoggedSet,
 } from '../../../types/data.types';
 import { saveWorkoutWithSets } from '../../../services/data/workoutService';
@@ -28,13 +29,15 @@ export interface ActiveExercise {
 export interface ActiveSet {
   id: string; // Temporary ID for UI management
   orderInExercise: number;
-  setType: 'standard' | 'amrapReps' | 'amrapTime';
+  setType: 'standard' | 'amrapReps' | 'amrapTime' | 'repsForTime';
   loggedWeightKg: number;
   loggedReps: number;
   completed: boolean;
   notes?: string;
   targetWeightKg?: number; // Optional for AMRAP sets
   targetDurationSecs?: number; // For AMRAP Time sets
+  targetReps?: number; // For Reps for Time sets
+  loggedTimeTakenSecs?: number; // For Reps for Time sets - time taken to complete reps
 }
 
 export interface ActiveWorkout {
@@ -129,43 +132,45 @@ export function useActiveWorkout(): UseActiveWorkoutReturn {
   }, []);
 
   // Add a set to an exercise
-  const addSet = useCallback((exerciseDefinitionId: string, initialValues?: Partial<ActiveSet>) => {
-    setActiveWorkout(prev => {
-      if (!prev) return prev;
+  const addSet = useCallback(
+    (exerciseDefinitionId: string, initialValues?: Partial<ActiveSet>) => {
+      setActiveWorkout(prev => {
+        if (!prev) return prev;
 
-      return {
-        ...prev,
-        exercises: prev.exercises.map(exercise => {
-          if (exercise.exerciseDefinitionId !== exerciseDefinitionId) {
-            return exercise;
-          }
+        return {
+          ...prev,
+          exercises: prev.exercises.map(exercise => {
+            if (exercise.exerciseDefinitionId !== exerciseDefinitionId) {
+              return exercise;
+            }
 
-          // Get values from the previous set if available
-          const previousSet =
-            exercise.sets.length > 0 ? exercise.sets[exercise.sets.length - 1] : null;
+            // Find the previous set for default values
+            const previousSet =
+              exercise.sets.length > 0 ? exercise.sets[exercise.sets.length - 1] : null;
 
-          // Create new set with values from previous set or defaults
-          const newSet: ActiveSet = {
-            id: uuidv4(),
-            orderInExercise: exercise.sets.length,
-            setType: initialValues?.setType ?? 'standard',
-            loggedWeightKg: initialValues?.loggedWeightKg ?? previousSet?.loggedWeightKg ?? 0,
-            loggedReps: initialValues?.loggedReps ?? previousSet?.loggedReps ?? 0,
-            completed: initialValues?.completed ?? false,
-            notes: initialValues?.notes,
-            targetWeightKg: initialValues?.targetWeightKg ?? previousSet?.targetWeightKg,
-            targetDurationSecs:
-              initialValues?.targetDurationSecs ?? previousSet?.targetDurationSecs,
-          };
+            const newSet: ActiveSet = {
+              id: uuidv4(),
+              orderInExercise: exercise.sets.length + 1,
+              setType: initialValues?.setType ?? previousSet?.setType ?? 'standard',
+              loggedWeightKg: initialValues?.loggedWeightKg ?? previousSet?.loggedWeightKg ?? 0,
+              loggedReps: initialValues?.loggedReps ?? previousSet?.loggedReps ?? 0,
+              completed: initialValues?.completed ?? false,
+              notes: initialValues?.notes,
+              targetWeightKg: initialValues?.targetWeightKg ?? previousSet?.targetWeightKg,
+              targetDurationSecs:
+                initialValues?.targetDurationSecs ?? previousSet?.targetDurationSecs,
+            };
 
-          return {
-            ...exercise,
-            sets: [...exercise.sets, newSet],
-          };
-        }),
-      };
-    });
-  }, []);
+            return {
+              ...exercise,
+              sets: [...exercise.sets, newSet],
+            };
+          }),
+        };
+      });
+    },
+    [setActiveWorkout]
+  );
 
   // Update a set
   const updateSet = useCallback(
@@ -197,7 +202,7 @@ export function useActiveWorkout(): UseActiveWorkoutReturn {
         };
       });
     },
-    []
+    [setActiveWorkout]
   );
 
   // Remove a set
@@ -299,6 +304,21 @@ export function useActiveWorkout(): UseActiveWorkoutReturn {
               loggedWeightKg: set.loggedWeightKg,
               loggedReps: set.loggedReps,
               loggedDurationSecs: set.targetDurationSecs, // Use target duration as logged duration for now
+              notes: set.notes,
+            };
+            loggedSets.push(loggedSet);
+          } else if (set.setType === 'repsForTime') {
+            // Reps For Time set
+            const loggedSet: Omit<RepsForTimeSet, 'id' | 'workoutLogId'> = {
+              exerciseDefinitionId: exercise.exerciseDefinitionId,
+              orderInWorkout: exercise.orderInWorkout,
+              orderInExercise: set.orderInExercise,
+              setType: 'repsForTime',
+              targetWeightKg: set.targetWeightKg,
+              targetReps: set.targetReps || set.loggedReps, // Use logged reps as target if not specified
+              loggedWeightKg: set.loggedWeightKg,
+              loggedReps: set.loggedReps,
+              loggedTimeTakenSecs: set.loggedTimeTakenSecs || 0, // Time taken to complete the reps
               notes: set.notes,
             };
             loggedSets.push(loggedSet);

@@ -7,7 +7,7 @@
 import { useState, useEffect } from 'react';
 import { Input } from '../../../components/ui/input';
 import { Button } from '../../../components/ui/button';
-import { Trash2, Check, MoreVertical, AlertCircle, Timer, Clock } from 'lucide-react';
+import { Trash2, Check, MoreVertical, AlertCircle, Timer, Clock, Watch } from 'lucide-react';
 import { useUserSettingsStore } from '../../../state/userSettingsStore';
 import { type ActiveSet } from '../hooks/useActiveWorkout';
 import {
@@ -35,13 +35,17 @@ export function SetInputRow({ setNumber, set, onUpdate, onDelete, onAddNote }: S
   const [weightInput, setWeightInput] = useState(set.loggedWeightKg.toString());
   const [repsInput, setRepsInput] = useState(set.loggedReps.toString());
   const [durationInput, setDurationInput] = useState(set.targetDurationSecs?.toString() || '60');
-  const [setType, setSetType] = useState<'standard' | 'amrapReps' | 'amrapTime'>(set.setType);
+  const [timeTakenInput, setTimeTakenInput] = useState(set.loggedTimeTakenSecs?.toString() || '0');
+  const [setType, setSetType] = useState<'standard' | 'amrapReps' | 'amrapTime' | 'repsForTime'>(
+    set.setType
+  );
   const [showTimer, setShowTimer] = useState(false);
 
   // Validation state
   const [weightError, setWeightError] = useState<string | null>(null);
   const [repsError, setRepsError] = useState<string | null>(null);
   const [durationError, setDurationError] = useState<string | null>(null);
+  const [timeTakenError, setTimeTakenError] = useState<string | null>(null);
 
   // Update local state when set prop changes
   useEffect(() => {
@@ -50,7 +54,10 @@ export function SetInputRow({ setNumber, set, onUpdate, onDelete, onAddNote }: S
     if (set.targetDurationSecs) {
       setDurationInput(set.targetDurationSecs.toString());
     }
-  }, [set.loggedWeightKg, set.loggedReps, set.targetDurationSecs]);
+    if (set.loggedTimeTakenSecs) {
+      setTimeTakenInput(set.loggedTimeTakenSecs.toString());
+    }
+  }, [set.loggedWeightKg, set.loggedReps, set.targetDurationSecs, set.loggedTimeTakenSecs]);
 
   // Handle weight input change
   const handleWeightChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -116,7 +123,7 @@ export function SetInputRow({ setNumber, set, onUpdate, onDelete, onAddNote }: S
 
   // Handle set type change
   const handleSetTypeChange = (value: string) => {
-    const newSetType = value as 'standard' | 'amrapReps' | 'amrapTime';
+    const newSetType = value as 'standard' | 'amrapReps' | 'amrapTime' | 'repsForTime';
     setSetType(newSetType);
 
     // If changing to amrapTime, initialize targetDurationSecs if not already set
@@ -124,6 +131,14 @@ export function SetInputRow({ setNumber, set, onUpdate, onDelete, onAddNote }: S
       onUpdate({
         setType: newSetType,
         targetDurationSecs: 60, // Default to 60 seconds
+      });
+    }
+    // If changing to repsForTime, initialize targetReps if not already set
+    else if (newSetType === 'repsForTime') {
+      onUpdate({
+        setType: newSetType,
+        targetReps: set.loggedReps || 10, // Default to current reps or 10
+        loggedTimeTakenSecs: set.loggedTimeTakenSecs || 0, // Initialize time taken
       });
     } else {
       onUpdate({ setType: newSetType });
@@ -144,9 +159,34 @@ export function SetInputRow({ setNumber, set, onUpdate, onDelete, onAddNote }: S
     }
   };
 
+  // Handle stopwatch stop for Reps for Time
+  const handleStopwatchStop = (elapsedSeconds: number) => {
+    setTimeTakenInput(elapsedSeconds.toString());
+    onUpdate({ loggedTimeTakenSecs: elapsedSeconds });
+  };
+
   // Handle timer cancellation
   const handleTimerCancel = () => {
     setShowTimer(false);
+  };
+
+  // Handle time taken input change
+  const handleTimeTakenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setTimeTakenInput(value);
+
+    // Validate input
+    const numValue = parseInt(value, 10);
+    if (isNaN(numValue)) {
+      setTimeTakenError('Please enter a valid number');
+      return;
+    } else if (numValue <= 0) {
+      setTimeTakenError('Time taken must be positive');
+      return;
+    } else {
+      setTimeTakenError(null);
+      onUpdate({ loggedTimeTakenSecs: numValue });
+    }
   };
 
   return (
@@ -166,6 +206,7 @@ export function SetInputRow({ setNumber, set, onUpdate, onDelete, onAddNote }: S
             <SelectItem value="standard">Standard</SelectItem>
             <SelectItem value="amrapReps">AMRAP for Reps</SelectItem>
             <SelectItem value="amrapTime">AMRAP for Time</SelectItem>
+            <SelectItem value="repsForTime">Reps for Time</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -351,8 +392,111 @@ export function SetInputRow({ setNumber, set, onUpdate, onDelete, onAddNote }: S
       {set.setType === 'amrapTime' && showTimer && (
         <div className="mt-3 mb-2">
           <IntegratedWorkoutTimer
-            durationSecs={parseInt(durationInput, 10)}
+            initialDurationSecs={parseInt(durationInput, 10)}
+            mode="countdown"
             onTimerComplete={handleTimerComplete}
+            onTimerCancel={handleTimerCancel}
+          />
+        </div>
+      )}
+
+      {/* Reps for Time set UI */}
+      {set.setType === 'repsForTime' && (
+        <div className="flex items-center gap-2 mt-2">
+          <div className="flex-1">
+            <div className="space-y-1">
+              <Label htmlFor={`target-reps-set-${setNumber}`} className="text-xs">
+                Target Reps
+              </Label>
+              <div className="relative">
+                <Input
+                  id={`target-reps-set-${setNumber}`}
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={repsInput}
+                  onChange={handleRepsChange}
+                  className={`pr-8 ${repsError ? 'border-red-500' : ''}`}
+                  aria-label={`Target reps for set ${setNumber + 1}`}
+                  aria-invalid={repsError ? 'true' : 'false'}
+                  aria-describedby={repsError ? `reps-error-${setNumber}` : undefined}
+                />
+                <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none text-gray-500 text-sm">
+                  reps
+                </div>
+              </div>
+              {repsError && (
+                <div
+                  id={`reps-error-${setNumber}`}
+                  className="text-xs text-red-500 flex items-center gap-1"
+                  role="alert"
+                >
+                  <AlertCircle size={12} />
+                  {repsError}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex-1">
+            <div className="space-y-1">
+              <Label htmlFor={`time-taken-set-${setNumber}`} className="text-xs">
+                Time Taken
+              </Label>
+              <div className="relative">
+                <Input
+                  id={`time-taken-set-${setNumber}`}
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={timeTakenInput}
+                  onChange={handleTimeTakenChange}
+                  className={`pr-8 ${timeTakenError ? 'border-red-500' : ''}`}
+                  aria-label={`Time taken for set ${setNumber + 1}`}
+                  aria-invalid={timeTakenError ? 'true' : 'false'}
+                  aria-describedby={timeTakenError ? `time-taken-error-${setNumber}` : undefined}
+                />
+                <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none text-gray-500 text-sm">
+                  secs
+                </div>
+              </div>
+              {timeTakenError && (
+                <div
+                  id={`time-taken-error-${setNumber}`}
+                  className="text-xs text-red-500 flex items-center gap-1"
+                  role="alert"
+                >
+                  <AlertCircle size={12} />
+                  {timeTakenError}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex-none pt-6">
+            {!showTimer ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={handleStartTimer}
+                className="flex items-center gap-1"
+              >
+                <Watch size={14} />
+                Start Stopwatch
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      )}
+
+      {/* Stopwatch for Reps for Time sets */}
+      {set.setType === 'repsForTime' && showTimer && (
+        <div className="mt-3 mb-2">
+          <IntegratedWorkoutTimer
+            mode="stopwatch"
+            autoStart={true}
+            onStopwatchStop={handleStopwatchStop}
             onTimerCancel={handleTimerCancel}
           />
         </div>
@@ -366,6 +510,17 @@ export function SetInputRow({ setNumber, set, onUpdate, onDelete, onAddNote }: S
         >
           <Clock size={14} aria-hidden="true" />
           <span>AMRAP: Max Reps in {durationInput} seconds</span>
+        </div>
+      )}
+
+      {/* Label for Reps for Time sets */}
+      {set.setType === 'repsForTime' && (
+        <div
+          className="text-xs text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1"
+          aria-live="polite"
+        >
+          <Watch size={14} aria-hidden="true" />
+          <span>Reps for Time: {repsInput} reps as fast as possible</span>
         </div>
       )}
     </div>
